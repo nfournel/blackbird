@@ -44,7 +44,7 @@ static json_t* checkResponse(std::ostream &logFile, json_t *root)
 quote_t getQuote(Parameters& params)
 {
   auto &exchange = queryHandle(params);
-  unique_json root { exchange.getRequest("/api/ticker") };
+  unique_json root { exchange.getRequest("/api/v2/ticker/btceur/") };
 
   const char *quote = json_string_value(json_object_get(root.get(), "bid"));
   auto bidValue = quote ? atof(quote) : 0.0;
@@ -57,7 +57,13 @@ quote_t getQuote(Parameters& params)
 
 double getAvail(Parameters& params, std::string currency)
 {
-  unique_json root { authRequest(params, "/api/balance/", "") };
+  unique_json root { authRequest(params, "/api/v2/balance/", "") };
+
+#if 0
+  *params.logFile << "<bitstamp> Dump: "
+                  << json_dumps(root.get(), 0) << '\n';
+#endif
+  
   while (json_object_get(root.get(), "message") != NULL)
   {
     std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -75,6 +81,10 @@ double getAvail(Parameters& params, std::string currency)
   else if (currency == "usd")
   {
     returnedText = json_string_value(json_object_get(root.get(), "usd_balance"));
+  }
+  else if (currency == "eur")
+  {
+    returnedText = json_string_value(json_object_get(root.get(), "eur_balance"));
   }
   if (returnedText != NULL)
   {
@@ -94,13 +104,13 @@ std::string sendLongOrder(Parameters& params, std::string direction, double quan
   *params.logFile << "<Bitstamp> Trying to send a \"" << direction << "\" limit order: "
                   << std::setprecision(6) << quantity << "@$"
                   << std::setprecision(2) << price << "...\n";
-  std::string url = "/api/" + direction + '/';
+  std::string url = "/api/v2/" + direction + "/btceur/";
 
   std::ostringstream oss;
   oss << "amount=" << quantity << "&price=" << std::fixed << std::setprecision(2) << price;
   std::string options = oss.str();
   unique_json root { authRequest(params, url, options) };
-  auto orderId = std::to_string(json_integer_value(json_object_get(root.get(), "id")));
+  std::string orderId = json_string_value(json_object_get(root.get(), "id"));
   if (orderId == "0")
   {
     auto dump = json_dumps(root.get(), 0);
@@ -127,7 +137,7 @@ double getActivePos(Parameters& params) { return getAvail(params, "btc"); }
 double getLimitPrice(Parameters& params, double volume, bool isBid)
 {
   auto &exchange = queryHandle(params);
-  unique_json root { exchange.getRequest("/api/order_book") };
+  unique_json root { exchange.getRequest("/api/v2/order_book/btceur/") };
   auto orderbook = json_object_get(root.get(), isBid ? "bids" : "asks");
 
   // loop on volume
@@ -152,8 +162,14 @@ double getLimitPrice(Parameters& params, double volume, bool isBid)
 
 json_t* authRequest(Parameters &params, std::string request, std::string options)
 {
-  static uint64_t nonce = time(nullptr) * 4;
-  auto msg = std::to_string(++nonce) + params.bitstampClientId + params.bitstampApi;
+  //static uint64_t nonce = time(nullptr) * 4;
+  struct timeval tim = { 0 };
+
+  gettimeofday(&tim, NULL);
+  uint64_t nonce = (tim.tv_sec * 1000) + (tim.tv_usec / 1000);
+
+
+  auto msg = std::to_string(nonce) + params.bitstampClientId + params.bitstampApi;
   uint8_t *digest = HMAC (EVP_sha256(),
                           params.bitstampSecret.c_str(), params.bitstampSecret.size(),
                           reinterpret_cast<const uint8_t *>(msg.data()), msg.size(),

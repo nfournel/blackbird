@@ -85,7 +85,8 @@ int main(int argc, char** argv) {
   }
 
   // We only trade BTC/USD for the moment
-  if (params.leg1.compare("BTC") != 0 || params.leg2.compare("USD") != 0) {
+  if (params.leg1.compare("BTC") != 0 ||
+      ((params.leg2.compare("USD") != 0) && (params.leg2.compare("EUR") != 0))) {
     std::cout << "ERROR: Valid currency pair is only BTC/USD for now.\n" << std::endl;
     exit(EXIT_FAILURE);
   }
@@ -227,11 +228,14 @@ int main(int argc, char** argv) {
   }
   if (params.gdaxEnable &&
      (params.gdaxApi.empty() == false || params.demoMode == true)) {
-    params.addExchange("GDAX", params.gdaxFees, false, false);
-    getQuote[index] = GDAX::getQuote;
-    getAvail[index] = GDAX::getAvail;
-    getActivePos[index] = GDAX::getActivePos;
-    getLimitPrice[index] = GDAX::getLimitPrice;
+    params.addExchange("GDAX", params.gdaxFees, false, true);
+    getQuote[index]        = GDAX::getQuote;
+    getAvail[index]        = GDAX::getAvail;
+    sendLongOrder[index]   = GDAX::sendLongOrder;
+    sendShortOrder[index]  = GDAX::sendShortOrder;
+    isOrderComplete[index] = GDAX::isOrderComplete;
+    getActivePos[index]    = GDAX::getActivePos;
+    getLimitPrice[index]   = GDAX::getLimitPrice;
 
     dbTableName[index] = "gdax";
     createTable(dbTableName[index], params);
@@ -326,7 +330,7 @@ int main(int argc, char** argv) {
                    {
                      Balance tmp {};
                      tmp.leg1 = apply(params, "btc");
-                     tmp.leg2 = apply(params, "usd");
+                     tmp.leg2 = apply(params, "eur");
                      return tmp;
                    } );
 
@@ -633,7 +637,7 @@ int main(int argc, char** argv) {
           shortOrderId = "0";
           inMarket = false;
           for (int i = 0; i < numExch; ++i) {
-            balance[i].leg2After = getAvail[i](params, "usd"); // FIXME: currency hard-coded
+            balance[i].leg2After = getAvail[i](params, "eur"); // FIXME: currency hard-coded
             balance[i].leg1After = getAvail[i](params, "btc"); // FIXME: currency hard-coded
           }
           for (int i = 0; i < numExch; ++i) {

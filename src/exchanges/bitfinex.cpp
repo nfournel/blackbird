@@ -39,7 +39,7 @@ quote_t getQuote(Parameters &params)
   auto &exchange = queryHandle(params);
 
   std::string url;
-  url = "/v1/ticker/btcusd";
+  url = "/v1/ticker/btceur";
   
   unique_json root { exchange.getRequest(url) };
 
@@ -67,6 +67,13 @@ double getAvail(Parameters& params, std::string currency)
                                       "type", &each_type,
                                       "currency", &each_currency,
                                       "amount", &each_amount);
+#if 0
+    *params.logFile << "<Bitfinex> type: "   << each_type
+                    <<           " amount: " << each_amount
+                    <<           " curr: "   << each_currency
+                    << '\n';
+#endif
+
     if (unpack_fail)
     {
       *params.logFile << "<Bitfinex> Error with JSON: "
@@ -97,7 +104,7 @@ std::string sendOrder(Parameters& params, std::string direction, double quantity
                   << std::setprecision(6) << quantity << "@$"
                   << std::setprecision(2) << price << "...\n";
   std::ostringstream oss;
-  oss << "\"symbol\":\"btcusd\", \"amount\":\"" << quantity << "\", \"price\":\"" << price << "\", \"exchange\":\"bitfinex\", \"side\":\"" << direction << "\", \"type\":\"limit\"";
+  oss << "\"symbol\":\"btceur\", \"amount\":\"" << quantity << "\", \"price\":\"" << price << "\", \"exchange\":\"bitfinex\", \"side\":\"" << direction << "\", \"type\":\"limit\"";
   std::string options = oss.str();
   unique_json root { authRequest(params, "/v1/order/new", options) };
   auto orderId = std::to_string(json_integer_value(json_object_get(root.get(), "order_id")));
@@ -133,7 +140,7 @@ double getActivePos(Parameters& params)
 double getLimitPrice(Parameters& params, double volume, bool isBid)
 {
   auto &exchange  = queryHandle(params);
-  unique_json root { exchange.getRequest("/v1/book/btcusd") };
+  unique_json root { exchange.getRequest("/v1/book/btceur") };
   json_t *bidask  = json_object_get(root.get(), isBid ? "bids" : "asks");
 
   *params.logFile << "<Bitfinex> Looking for a limit price to fill "
@@ -161,10 +168,15 @@ json_t* authRequest(Parameters &params, std::string request, std::string options
 {
   using namespace std;
 
-  static uint64_t nonce = time(nullptr) * 4;
+  //static uint64_t nonce = time(nullptr) * 4;
+  struct timeval tim = { 0 };
 
+  gettimeofday(&tim, NULL);
+  uint64_t nonce = (tim.tv_sec * 1000) + (tim.tv_usec / 1000);
+
+               
   string payload = "{\"request\":\"" + request +
-                   "\",\"nonce\":\"" + to_string(++nonce);
+                   "\",\"nonce\":\"" + to_string(nonce);
   if (options.empty())
   {
     payload += "\"}";

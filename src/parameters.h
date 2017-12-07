@@ -76,6 +76,7 @@ struct Parameters {
   bool poloniexEnable;
   std::string gdaxApi;
   std::string gdaxSecret;
+  std::string gdaxPassPhrase;
   double gdaxFees;
   bool gdaxEnable;
   std::string quadrigaApi;
